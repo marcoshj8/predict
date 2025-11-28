@@ -8,6 +8,19 @@ const { initModel } = require("./services/tfModelService");
 
 const PORT = process.env.PORT || 3002;
 
+
+// --------- Añadido por mí ---------
+const mongoose = require('mongoose');
+// Conectar a MongoDB
+mongoose.connect('mongodb://localhost:27017/predictor')
+.then(() => {
+console.log('Conexión a la base de datos establecida');
+}).catch(err => {
+console.error('Error de conexión a la base de datos:', err);
+});
+// ----------------------------------
+
+
 const app = express();
 app.use(express.json());
 
