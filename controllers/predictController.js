@@ -1,5 +1,8 @@
 // controllers/predictController.js
+const { guardarMongo } = require("../../acquire/services/acquireMongoDB");
 const { getModelInfo, predict } = require("../services/tfModelService");
+const Prediction = require("../models/predictionModels");
+
 
 function health(req, res) {
   res.json({
@@ -39,46 +42,50 @@ async function doPredict(req, res) {
 
     const { features, meta } = req.body;
 
-    if (!features) {
-      return res.status(400).json({ error: "Missing features" });
+    const { featureCount, dataId, source, correlationId } = meta;
+    
+        if (featureCount !== info.inputDim) {
+          return res.status(400).json({
+            error: `featureCount must be ${info.inputDim}, received ${featureCount}`
+          });
+        }
+    
+        if (!Array.isArray(features) || features.length !== info.inputDim) {
+          return res.status(400).json({
+            error: `features must be an array of ${info.inputDim} numbers`
+          });
+        }
+        
+
+        
+        const prediction = await predict(features);
+        const latencyMs = Date.now() - start;
+        const ts = new Date();
+    
+        const doc = await Prediction.create({
+          dataId: dataId || null,
+          prediction,
+          latencyMs,
+          source,
+          correlationId,
+          createdAt: ts
+        });
+    
+        res.status(201).json({
+          dataId: dataId, 
+          predictionId: doc._id.toString(),
+          prediction,
+          timestamp: ts.toISOString() 
+        });
+
+      } catch (err) {
+        console.error("Error en /predict:", err);
+        res.status(500).json({ error: "Internal error" });
+      }
     }
-    if (!meta || typeof meta !== "object") {
-      return res.status(400).json({ error: "Missing meta object" });
-    }
-
-    const { featureCount } = meta;
-
-    if (featureCount !== info.inputDim) {
-      return res.status(400).json({
-        error: `featureCount must be ${info.inputDim}, received ${featureCount}`
-      });
-    }
-
-    if (!Array.isArray(features) || features.length !== info.inputDim) {
-      return res.status(400).json({
-        error: `features must be an array of ${info.inputDim} numbers`
-      });
-    }
-
-    const prediction = await predict(features);
-    const latencyMs = Date.now() - start;
-    const timestamp = new Date().toISOString();
-
-    // De momento sin MongoDB → predictionId null
-    res.status(201).json({
-      predictionId: null,
-      prediction,
-      timestamp,
-      latencyMs
-    });
-  } catch (err) {
-    console.error("Error en /predict:", err);
-    res.status(500).json({ error: "Internal error" });
-  }
-}
-
-module.exports = {
-  health,
-  ready,
-  doPredict
-};
+    
+    module.exports = {
+      health,
+      ready,
+      doPredict
+    };

@@ -10,3 +10,4 @@ router.get("/ready", predictController.ready);
 router.post("/predict", predictController.doPredict);
 
 module.exports = router;
+
